@@ -26,4 +26,8 @@ class PointEntityService(
 
         return PointEntityDto.from(updatedOne)
     }
+
+    fun findOrCreateOneById(id: Long): PointEntityDto {
+        return PointEntityDto.from(pointEntityRepository.findOrCreateByUserId(id))
+    }
 }

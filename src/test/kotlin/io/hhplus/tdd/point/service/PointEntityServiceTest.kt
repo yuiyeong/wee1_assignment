@@ -76,4 +76,41 @@ class PointEntityServiceTest @Autowired constructor(
             .isInstanceOf(NegativeAmountException::class.java)
             .hasMessageContaining("amount 는 0보다 커야합니다.")
     }
+
+    /**
+     * 저장되어있는 UserPoint 의 id 로 조회를 시도하면,
+     * 해당 UserPoint 의 정보를 PointEntityDto 로 반환해야한다.
+     */
+    @Test
+    fun `should return UserEntityDto about saved UserPoint`() {
+        // given
+
+        val pointEntity = PointEntity(2L, 900L, System.currentTimeMillis() - 10)
+        given(pointEntityRepository.findOrCreateByUserId(pointEntity.id)).willReturn(pointEntity)
+
+        // when
+        val userPointDto = pointEntityService.findOrCreateOneById(pointEntity.id)
+
+        // then
+        Assertions.assertThat(userPointDto.id).isEqualTo(pointEntity.id)
+        Assertions.assertThat(userPointDto.point).isEqualTo(pointEntity.point)
+        Assertions.assertThat(userPointDto.updatedMillis).isEqualTo(pointEntity.updatedMillis)
+    }
+
+    /**
+     * 새로운 id 로 findOrCreateOneById 시도하면,
+     * 새로운 UserPoint 에 대한 PointEntityDto 를 반환해야한다.
+     */
+    @Test
+    fun `should return new UserEntityDto about new userId`() {
+        // given
+        val newId = 21L
+
+        // when
+        val newUserPointDto = pointEntityService.findOrCreateOneById(newId)
+
+        // then
+        Assertions.assertThat(newUserPointDto.id).isEqualTo(newId)
+        Assertions.assertThat(newUserPointDto.point).isEqualTo(0)
+    }
 }
