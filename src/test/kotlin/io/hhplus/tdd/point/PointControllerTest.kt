@@ -6,6 +6,7 @@ import org.hamcrest.Matchers.greaterThan
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.mockito.BDDMockito.given
+import org.mockito.BDDMockito.reset
 import org.mockito.BDDMockito.verify
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
@@ -25,6 +26,8 @@ class PointControllerTest @Autowired constructor(
 ) {
     @AfterEach
     fun afterEach() {
+        reset(pointEntityRepository)
+
         pointEntityRepository.deleteAll()
     }
 
