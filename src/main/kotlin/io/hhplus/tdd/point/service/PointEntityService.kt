@@ -1,6 +1,7 @@
 package io.hhplus.tdd.point.service
 
 import io.hhplus.tdd.point.dto.PointEntityDto
+import io.hhplus.tdd.point.dto.TransactionEntityDto
 import io.hhplus.tdd.point.repository.PointEntityRepository
 import io.hhplus.tdd.point.repository.TransactionEntityRepository
 import org.springframework.stereotype.Service
@@ -29,5 +30,9 @@ class PointEntityService(
 
     fun findOrCreateOneById(id: Long): PointEntityDto {
         return PointEntityDto.from(pointEntityRepository.findOrCreateByUserId(id))
+    }
+
+    fun findTransactionsByUserId(userId: Long): List<TransactionEntityDto> {
+        return transactionEntityRepository.findAllByUserId(userId).map { TransactionEntityDto.from(it) }
     }
 }

@@ -195,7 +195,6 @@ class PointControllerTest @Autowired constructor(
 
         verify(pointEntityRepository).findOrCreateByUserId(userId)
         verify(transactionEntityRepository).findAllByUserId(userId)
-
     }
 
     /**

@@ -1,6 +1,7 @@
 package io.hhplus.tdd.point.service
 
 import io.hhplus.tdd.point.domain.PointEntity
+import io.hhplus.tdd.point.domain.TransactionEntity
 import io.hhplus.tdd.point.domain.TransactionEntityType
 import io.hhplus.tdd.point.exception.NegativeAmountException
 import io.hhplus.tdd.point.repository.PointEntityRepository
@@ -112,4 +113,64 @@ class PointEntityServiceTest @Autowired constructor(
         Assertions.assertThat(newUserPointDto.id).isEqualTo(newId)
         Assertions.assertThat(newUserPointDto.point).isEqualTo(0)
     }
+
+    /**
+     * 충전을 한 적이 있는 사용자의 id 에 대해서는,
+     * 충전 내역이 들어있는 TransactionEntityDto list 를 반환해야한다.
+     */
+    @Test
+    fun `should return transactions associated with userId`() {
+        // given: TransactionEntity 1개가 주어진 상황
+        val userId = 1L
+        val transactionEntity = TransactionEntity(
+            1L, userId, TransactionEntityType.ADD, 100L, System.currentTimeMillis() - 10
+        )
+        given(transactionEntityRepository.findAllByUserId(userId)).willReturn(listOf(transactionEntity))
+
+        // when
+        val transactions = pointEntityService.findTransactionsByUserId(userId)
+
+        // then
+        Assertions.assertThat(transactions.count()).isEqualTo(1)
+        Assertions.assertThat(transactions[0].id).isEqualTo(transactionEntity.id)
+        Assertions.assertThat(transactions[0].userId).isEqualTo(transactionEntity.userId)
+        Assertions.assertThat(transactions[0].type).isEqualTo(transactionEntity.type.toTransactionType())
+        Assertions.assertThat(transactions[0].amount).isEqualTo(transactionEntity.amount)
+        Assertions.assertThat(transactions[0].timeMillis).isEqualTo(transactionEntity.timeMillis)
+
+        verify(transactionEntityRepository).findAllByUserId(userId)
+    }
+
+    /**
+     * 충전 혹은 사용한 적이 없는 사용자의 id에 대해서는,
+     * 빈 list 를 반환해야한다.
+     */
+    @Test
+    fun `should return empty list when user has no transaction`() {
+        // given
+        val userEntity = pointEntityService.findOrCreateOneById(22L)
+
+        // when
+        val transactions = pointEntityService.findTransactionsByUserId(userEntity.id)
+
+        // then
+        Assertions.assertThat(transactions).isEmpty()
+    }
+
+    /**
+     * 알 수 없는 사용자의 id 에 대해서는,
+     * 빈 list 를 반환해야한다.
+     */
+    @Test
+    fun `should return empty list about unknown userId`() {
+        // given
+        val unknownId = 11L
+
+        // when
+        val transactions = pointEntityService.findTransactionsByUserId(unknownId)
+
+        // then
+        Assertions.assertThat(transactions).isEmpty()
+    }
+
 }
