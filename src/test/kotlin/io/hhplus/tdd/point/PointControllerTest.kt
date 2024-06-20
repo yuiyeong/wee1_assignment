@@ -168,13 +168,11 @@ class PointControllerTest @Autowired constructor(
      */
     @Test
     fun `should return 200 ok with transactions associated with id`() {
-        // given: PointEntity 와 그 PointEntity 에 연결된 TransactionEntity 1개가 주어진 상황
+        // given: TransactionEntity 1개가 주어진 상황
         val userId = 1L
-        val pointEntity = PointEntity(userId, 100L, System.currentTimeMillis() - 10)
-        given(pointEntityRepository.findOrCreateByUserId(userId)).willReturn(pointEntity)
-
-        val transactionEntity =
-            TransactionEntity(1L, userId, TransactionEntityType.ADD, 100L, pointEntity.updatedMillis)
+        val transactionEntity = TransactionEntity(
+            1L, userId, TransactionEntityType.ADD, 100L, System.currentTimeMillis() - 5
+        )
         given(transactionEntityRepository.findAllByUserId(userId)).willReturn(listOf(transactionEntity))
 
         // when
@@ -189,11 +187,10 @@ class PointControllerTest @Autowired constructor(
             .andExpect(jsonPath("$.length()").value(1))
             .andExpect(jsonPath("$[0].id").value(transactionEntity.id))
             .andExpect(jsonPath("$[0].userId").value(transactionEntity.userId))
-            .andExpect(jsonPath("$[0].type").value(transactionEntity.type))
+            .andExpect(jsonPath("$[0].type").value(transactionEntity.type.toTransactionType().toString()))
             .andExpect(jsonPath("$[0].amount").value(transactionEntity.amount))
             .andExpect(jsonPath("$[0].timeMillis").value(transactionEntity.timeMillis))
-
-        verify(pointEntityRepository).findOrCreateByUserId(userId)
+        
         verify(transactionEntityRepository).findAllByUserId(userId)
     }
 
@@ -204,8 +201,6 @@ class PointControllerTest @Autowired constructor(
     fun `should return 200 ok with empty list when user has no transaction`() {
         // given
         val userId = 1L
-        val pointEntity = PointEntity(userId, 0L, System.currentTimeMillis() - 10)
-        given(pointEntityRepository.findOrCreateByUserId(userId)).willReturn(pointEntity)
 
         // when
         val resultActions = mockMvc.perform(
@@ -216,8 +211,6 @@ class PointControllerTest @Autowired constructor(
         resultActions.andExpect(status().isOk)
             .andExpect(jsonPath("$").isArray)
             .andExpect(jsonPath("$").isEmpty)
-
-        verify(pointEntityRepository).findOrCreateByUserId(userId)
     }
 
     /**
