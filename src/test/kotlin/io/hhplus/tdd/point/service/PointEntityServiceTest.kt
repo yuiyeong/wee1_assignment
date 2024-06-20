@@ -3,6 +3,7 @@ package io.hhplus.tdd.point.service
 import io.hhplus.tdd.point.domain.PointEntity
 import io.hhplus.tdd.point.domain.TransactionEntity
 import io.hhplus.tdd.point.domain.TransactionEntityType
+import io.hhplus.tdd.point.exception.ExceedPointException
 import io.hhplus.tdd.point.exception.NegativeAmountException
 import io.hhplus.tdd.point.repository.PointEntityRepository
 import io.hhplus.tdd.point.repository.TransactionEntityRepository
@@ -173,4 +174,47 @@ class PointEntityServiceTest @Autowired constructor(
         Assertions.assertThat(transactions).isEmpty()
     }
 
+    /**
+     * 포인트가 충분할 때 use 를 호출하면, amount 만큼이 줄어든 point 로 PointEntityDto 를 반환해야하며,
+     * 그 내역이 USE type 의 PointHistory 로 추가되어야 한다.
+     */
+    @Test
+    fun `should return UserEntityDto that has deducted point`() {
+        // given: 1000 포인트를 가진 UserPoint 가 있는 상황
+        val userId = 1L
+        val point = 1000L
+        val pointEntity = PointEntity(userId, point, System.currentTimeMillis() - 10)
+        given(pointEntityRepository.findOrCreateByUserId(userId)).willReturn(pointEntity)
+
+        val amount = 89L
+
+        // when: 89 포인트를 사용함
+        val userEntityDto = pointEntityService.use(userId, amount)
+
+        // then: UserEntityDto 의 정보가 mock 으로 넣어준 PointEntity 의 정보 및 사용 후 남은 포인트와 같은지 확인
+        Assertions.assertThat(userEntityDto.id).isEqualTo(pointEntity.id)
+        Assertions.assertThat(userEntityDto.point).isEqualTo(point - amount)
+        Assertions.assertThat(userEntityDto.updatedMillis).isGreaterThan(pointEntity.updatedMillis)
+
+        verify(pointEntityRepository).findOrCreateByUserId(userId)
+    }
+
+    /**
+     * 보유량보다 큰 포인트를 사용하려고 하면, ExceedPointException 을 던져야 한다.
+     */
+    @Test
+    fun `should use throw ExceedPointException when trying to use more points than available`() {
+        // given: 100 포인트를 가진 UserPoint 가 있는 상황
+        val userId = 12L
+        val pointEntity = PointEntity(userId, 100L, System.currentTimeMillis() - 10)
+        given(pointEntityRepository.findOrCreateByUserId(userId)).willReturn(pointEntity)
+        val amount = 189L
+
+        // when & then: 189 포인트는 100 포인트를 넘었기 때문에 사용하려고 하면 ExceedPointException 이 발생
+        Assertions.assertThatThrownBy { pointEntityService.use(userId, amount) }
+            .isInstanceOf(ExceedPointException::class.java)
+            .hasMessageContaining("amount 는 포인트보다 클 수 없습니다.")
+
+        verify(pointEntityRepository).findOrCreateByUserId(userId)
+    }
 }

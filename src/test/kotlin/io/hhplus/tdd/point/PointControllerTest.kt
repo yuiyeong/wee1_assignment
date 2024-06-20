@@ -190,7 +190,7 @@ class PointControllerTest @Autowired constructor(
             .andExpect(jsonPath("$[0].type").value(transactionEntity.type.toTransactionType().toString()))
             .andExpect(jsonPath("$[0].amount").value(transactionEntity.amount))
             .andExpect(jsonPath("$[0].timeMillis").value(transactionEntity.timeMillis))
-        
+
         verify(transactionEntityRepository).findAllByUserId(userId)
     }
 
@@ -230,5 +230,64 @@ class PointControllerTest @Autowired constructor(
         resultActions.andExpect(status().isOk)
             .andExpect(jsonPath("$").isArray)
             .andExpect(jsonPath("$").isEmpty)
+    }
+
+    /**
+     * 사용자가 가지고 있는 point 가 사용하려는 포인트보다 많거나 같다면, use 요청을 받았을 때,
+     * 사용하고 남은 point 를 보내주어야 한다.
+     */
+    @Test
+    fun `should return 200 ok with remaining point when point is sufficient`() {
+        // given: 1000 포인트를 가진 UserPoint 가 있는 상황
+        val userId = 1L
+        val point = 1000L
+        val pointEntity = PointEntity(userId, point, System.currentTimeMillis() - 10)
+        given(pointEntityRepository.findOrCreateByUserId(userId)).willReturn(pointEntity)
+
+        val amount = 999L
+
+        // when
+        val resultActions = mockMvc.perform(
+            patch("/point/$userId/use")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(amount.toString())
+        )
+
+        // then
+        resultActions.andExpect(status().isOk)
+            .andExpect(jsonPath("$.id").value(userId))
+            .andExpect(jsonPath("$.point").value(point - amount))
+            .andExpect(jsonPath("$.updatedMillis").value(greaterThan(pointEntity.updatedMillis)))
+
+        verify(pointEntityRepository).findOrCreateByUserId(userId)
+    }
+
+    /**
+     * 사용자의 포인트보다 더 많은 양을 사용하려고 한다면,
+     * 사용할 수 없다는 error response 를 status code 400 과 함께 내려주어야 한다.
+     */
+    @Test
+    fun `should return 400 bad request for exceed amount`() {
+        // given: 100 포인트를 가진 UserPoint 가 1명 있는 상황
+        val userId = 11L
+        val point = 100L
+        val pointEntity = PointEntity(userId, point, System.currentTimeMillis() - 10)
+        given(pointEntityRepository.findOrCreateByUserId(userId)).willReturn(pointEntity)
+
+        val amount = 999L
+
+        // when: 가진 포인트보다 더 많은 포인트를 사용하려는 상황
+        val resultActions = mockMvc.perform(
+            patch("/point/$userId/use")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(amount.toString())
+        )
+
+        // then
+        resultActions.andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.code").value(400))
+            .andExpect(jsonPath("$.message").value("amount 는 포인트보다 클 수 없습니다."))
+
+        verify(pointEntityRepository).findOrCreateByUserId(userId)
     }
 }
