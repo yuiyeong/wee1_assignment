@@ -1,36 +1,33 @@
-package io.hhplus.tdd.point.mock
+package io.hhplus.tdd.point.infra
 
+import io.hhplus.tdd.database.PointHistoryTable
 import io.hhplus.tdd.point.domain.PointEntity
 import io.hhplus.tdd.point.domain.TransactionEntity
 import io.hhplus.tdd.point.domain.TransactionEntityType
 import io.hhplus.tdd.point.repository.TransactionEntityRepository
-import org.springframework.context.annotation.Primary
 import org.springframework.stereotype.Repository
 
-@Primary
 @Repository
-class StubTransactionEntityRepository : TransactionEntityRepository {
-    private val table = mutableListOf<TransactionEntity>()
-    private var cursor = 1L
-
+class TransactionEntityRepositoryImpl(
+    private val pointHistoryTable: PointHistoryTable
+) : TransactionEntityRepository {
     override fun findAllByUserId(userId: Long): List<TransactionEntity> {
-        return table.filter { it.userId == userId }
+        return pointHistoryTable.selectAllByUserId(userId).map {
+            TransactionEntity.from(it)
+        }
     }
 
     override fun insert(pointEntity: PointEntity, amount: Long, type: TransactionEntityType): TransactionEntity {
-        val id = cursor++
-        val transaction = TransactionEntity(
-            id,
+        val pointHistory = pointHistoryTable.insert(
             pointEntity.id,
-            type,
             amount,
+            type.toTransactionType(),
             pointEntity.updatedMillis
         )
-        table.add(transaction)
-        return transaction
+        return TransactionEntity.from(pointHistory)
     }
 
     override fun deleteAll() {
-        table.clear()
+        // nothing to do
     }
 }

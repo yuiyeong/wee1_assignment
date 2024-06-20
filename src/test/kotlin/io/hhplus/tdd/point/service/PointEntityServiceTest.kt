@@ -37,7 +37,8 @@ class PointEntityServiceTest @Autowired constructor(
     @Test
     fun `should return UserEntityDto that has the added points and insert TransactionEntity`() {
         // given: PointEntity 1 개가 있고, transaction 은 없는 상황
-        val pointEntity = PointEntity(1L, 1000L, System.currentTimeMillis() - 10)
+        val point = 1000L
+        val pointEntity = PointEntity(1L, point, System.currentTimeMillis() - 10)
         given(pointEntityRepository.findOrCreateByUserId(pointEntity.id)).willReturn(pointEntity)
 
         val transactionCount = transactionEntityRepository.findAllByUserId(pointEntity.id).count()
@@ -46,14 +47,17 @@ class PointEntityServiceTest @Autowired constructor(
         // when
         val dto = pointEntityService.charge(pointEntity.id, amount)
 
-        // then: 충전이 반영된 PointEntityDto 가 오고, transaction 은 원래보다 1개 늘어났는지 확인
+        // then: 충전이 반영된 PointEntityDto 가 오고
         Assertions.assertThat(dto.id).isEqualTo(pointEntity.id)
-        Assertions.assertThat(dto.point).isEqualTo(pointEntity.point + amount)
+        Assertions.assertThat(dto.point).isEqualTo(point + amount)
+        Assertions.assertThat(dto.updatedMillis).isGreaterThan(pointEntity.updatedMillis)
 
+        // transaction 은 원래보다 1개 늘어났는지 확인
         val history = transactionEntityRepository.findAllByUserId(pointEntity.id)
         Assertions.assertThat(history.count()).isEqualTo(transactionCount + 1)
         Assertions.assertThat(history.last().amount).isEqualTo(amount)
         Assertions.assertThat(history.last().type).isEqualTo(TransactionEntityType.ADD)
+        Assertions.assertThat(history.last().timeMillis).isEqualTo(dto.updatedMillis)
 
         verify(pointEntityRepository).findOrCreateByUserId(pointEntity.id)
     }
