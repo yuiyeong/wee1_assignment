@@ -7,6 +7,7 @@ import io.hhplus.tdd.point.repository.PointEntityRepository
 import io.hhplus.tdd.point.repository.TransactionEntityRepository
 import org.hamcrest.Matchers.greaterThan
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.RepeatedTest
 import org.junit.jupiter.api.Test
 import org.mockito.BDDMockito.given
 import org.mockito.BDDMockito.reset
@@ -293,11 +294,11 @@ class PointControllerTest @Autowired constructor(
 
         verify(pointEntityRepository).findOrCreateByUserId(userId)
     }
-    
+
     /**
      * 동시에 여러 요청이 들어온다면, 들어온 순서대로 요청을 처리해야한다.
      */
-    @Test
+    @RepeatedTest(10)
     fun `should process the request sequentially when multiple requests come simultaneously`() {
         // given: 충전은 10 포인트, 사용은 1포인트로 정함.
         // expectedPoint 를 AtomicLong 으로 설정하여 Thread Safe 하게 더할 수 있도록 함
