@@ -84,7 +84,6 @@ class PointEntityServiceTest @Autowired constructor(
     @Test
     fun `should return UserEntityDto about saved UserPoint`() {
         // given
-
         val pointEntity = PointEntity(2L, 900L, System.currentTimeMillis() - 10)
         given(pointEntityRepository.findOrCreateByUserId(pointEntity.id)).willReturn(pointEntity)
 

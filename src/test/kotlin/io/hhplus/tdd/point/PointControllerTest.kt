@@ -1,7 +1,10 @@
 package io.hhplus.tdd.point
 
 import io.hhplus.tdd.point.domain.PointEntity
+import io.hhplus.tdd.point.domain.TransactionEntity
+import io.hhplus.tdd.point.domain.TransactionEntityType
 import io.hhplus.tdd.point.repository.PointEntityRepository
+import io.hhplus.tdd.point.repository.TransactionEntityRepository
 import org.hamcrest.Matchers.greaterThan
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
@@ -23,13 +26,16 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 @AutoConfigureMockMvc
 class PointControllerTest @Autowired constructor(
     @SpyBean private val pointEntityRepository: PointEntityRepository,
+    @SpyBean private val transactionEntityRepository: TransactionEntityRepository,
     private val mockMvc: MockMvc
 ) {
     @AfterEach
     fun afterEach() {
         reset(pointEntityRepository)
+        reset(transactionEntityRepository)
 
         pointEntityRepository.deleteAll()
+        transactionEntityRepository.deleteAll()
     }
 
     /**
@@ -155,5 +161,82 @@ class PointControllerTest @Autowired constructor(
             .andExpect(jsonPath("$.id").value(newUserId))
             .andExpect(jsonPath("$.point").value(0))
             .andExpect(jsonPath("$.updatedMillis").isNumber)
+    }
+
+    /**
+     * 충전을 한 적이 있는 사용자의 포인트에 대한 내역 요청이 오면, 충전에 대한 내역이 내려와야한다.
+     */
+    @Test
+    fun `should return 200 ok with transactions associated with id`() {
+        // given: PointEntity 와 그 PointEntity 에 연결된 TransactionEntity 1개가 주어진 상황
+        val userId = 1L
+        val pointEntity = PointEntity(userId, 100L, System.currentTimeMillis() - 10)
+        given(pointEntityRepository.findOrCreateByUserId(userId)).willReturn(pointEntity)
+
+        val transactionEntity =
+            TransactionEntity(1L, userId, TransactionEntityType.ADD, 100L, pointEntity.updatedMillis)
+        given(transactionEntityRepository.findAllByUserId(userId)).willReturn(listOf(transactionEntity))
+
+        // when
+        val resultActions = mockMvc.perform(
+            get("/point/$userId/histories").contentType(MediaType.APPLICATION_JSON)
+        )
+
+        // then
+        resultActions.andExpect(status().isOk)
+            .andExpect(jsonPath("$").isArray)
+            // 충전을 1번만 한 상황이므로, 정확히 1개 왔는지 확인
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$[0].id").value(transactionEntity.id))
+            .andExpect(jsonPath("$[0].userId").value(transactionEntity.userId))
+            .andExpect(jsonPath("$[0].type").value(transactionEntity.type))
+            .andExpect(jsonPath("$[0].amount").value(transactionEntity.amount))
+            .andExpect(jsonPath("$[0].timeMillis").value(transactionEntity.timeMillis))
+
+        verify(pointEntityRepository).findOrCreateByUserId(userId)
+        verify(transactionEntityRepository).findAllByUserId(userId)
+
+    }
+
+    /**
+     * 충전 혹은 사용한 적이 없는 사용자의 포인트에 대한 내역 요청이 오면, 빈 내역을 보내주어야 한다.
+     */
+    @Test
+    fun `should return 200 ok with empty list when user has no transaction`() {
+        // given
+        val userId = 1L
+        val pointEntity = PointEntity(userId, 0L, System.currentTimeMillis() - 10)
+        given(pointEntityRepository.findOrCreateByUserId(userId)).willReturn(pointEntity)
+
+        // when
+        val resultActions = mockMvc.perform(
+            get("/point/$userId/histories").contentType(MediaType.APPLICATION_JSON)
+        )
+
+        // then
+        resultActions.andExpect(status().isOk)
+            .andExpect(jsonPath("$").isArray)
+            .andExpect(jsonPath("$").isEmpty)
+
+        verify(pointEntityRepository).findOrCreateByUserId(userId)
+    }
+
+    /**
+     * 알 수 없는 사용자의 id 로 내역 요청이 오면, 빈 내역을 보내주어야 한다.
+     */
+    @Test
+    fun `should return 200 ok with empty list about unknown id`() {
+        // given
+        val unknownId = 10L
+
+        // when
+        val resultActions = mockMvc.perform(
+            get("/point/$unknownId/histories").contentType(MediaType.APPLICATION_JSON)
+        )
+
+        // then
+        resultActions.andExpect(status().isOk)
+            .andExpect(jsonPath("$").isArray)
+            .andExpect(jsonPath("$").isEmpty)
     }
 }
