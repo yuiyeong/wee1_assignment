@@ -1,6 +1,7 @@
 package io.hhplus.tdd.point
 
 import io.hhplus.tdd.point.dto.PointEntityDto
+import io.hhplus.tdd.point.dto.TransactionEntityDto
 import io.hhplus.tdd.point.service.PointEntityService
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -29,13 +30,13 @@ class PointController(
     }
 
     /**
-     * TODO - 특정 유저의 포인트 충전/이용 내역을 조회하는 기능을 작성해주세요.
+     * 특정 유저의 포인트 충전/이용 내역을 조회하는 기능
      */
     @GetMapping("{id}/histories")
     fun history(
         @PathVariable id: Long,
-    ): List<PointHistory> {
-        return emptyList()
+    ): List<TransactionEntityDto> {
+        return pointEntityService.findTransactionsByUserId(id)
     }
 
     /**
