@@ -7,6 +7,7 @@ import io.hhplus.tdd.point.repository.PointEntityRepository
 import io.hhplus.tdd.point.repository.TransactionEntityRepository
 import org.hamcrest.Matchers.greaterThan
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.RepeatedTest
 import org.junit.jupiter.api.Test
 import org.mockito.BDDMockito.given
 import org.mockito.BDDMockito.reset
@@ -21,6 +22,9 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicLong
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -289,5 +293,52 @@ class PointControllerTest @Autowired constructor(
             .andExpect(jsonPath("$.message").value("amount 는 포인트보다 클 수 없습니다."))
 
         verify(pointEntityRepository).findOrCreateByUserId(userId)
+    }
+
+    /**
+     * 동시에 여러 요청이 들어온다면, 들어온 순서대로 요청을 처리해야한다.
+     */
+    @RepeatedTest(10)
+    fun `should process the request sequentially when multiple requests come simultaneously`() {
+        // given: 충전은 10 포인트, 사용은 1포인트로 정함.
+        // expectedPoint 를 AtomicLong 으로 설정하여 Thread Safe 하게 더할 수 있도록 함
+        val userId = 21L
+
+        val chargingAmount = 10L
+        val usageAmount = 1L
+
+        val expectedPoint = AtomicLong(0)
+
+        val tasks = 10
+        val latch = CountDownLatch(tasks)
+        val executor = Executors.newFixedThreadPool(10)
+
+        // when: 10개의 task 가 10 개의 thread 에서 동시에 실행
+        // 5개는 충전, 5개는 사용 api 를 호출한다.
+        for (i in 0..<tasks) {
+            executor.submit {
+                try {
+                    val path = if (i % 2 == 0) "/point/$userId/charge" else "/point/$userId/use"
+                    val amount = if (i % 2 == 0) chargingAmount else usageAmount
+
+                    mockMvc.perform(
+                        patch(path).contentType(MediaType.APPLICATION_JSON).content(amount.toString())
+                    ).andExpect(status().isOk)
+
+                    expectedPoint.addAndGet(if (i % 2 == 0) chargingAmount else -usageAmount)
+                } finally {
+                    latch.countDown()
+                }
+            }
+        }
+        latch.await()
+        executor.shutdown()
+
+        // then: expectedPoint 와 모든 api 를 처리하고 난 뒤의 point 와 같아야 한다.
+        mockMvc.perform(
+            get("/point/$userId").contentType(MediaType.APPLICATION_JSON)
+        ).andExpect(status().isOk)
+            .andExpect(jsonPath("$.id").value(userId))
+            .andExpect(jsonPath("$.point").value(expectedPoint.get()))
     }
 }
