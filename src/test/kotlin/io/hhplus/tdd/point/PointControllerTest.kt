@@ -14,6 +14,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.mock.mockito.SpyBean
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
@@ -106,5 +107,53 @@ class PointControllerTest @Autowired constructor(
         resultActions.andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.code").value(400))
             .andExpect(jsonPath("$.message").value("amount 는 0보다 커야합니다."))
+    }
+
+    /**
+     * 기존 사용자의 포인트에 대한 조회 요청이 오면,
+     * 해당 id 의 UserPoint 정보를 보내주어야 한다.
+     */
+    @Test
+    fun `should return 200 ok with PointEntityDto when getting point`() {
+        // given
+        val userId = 1L
+        val point = 1000L
+
+        val pointEntity = PointEntity(userId, point, System.currentTimeMillis() - 10)
+        given(pointEntityRepository.findOrCreateByUserId(userId)).willReturn(pointEntity)
+
+        // when
+        val resultActions = mockMvc.perform(
+            get("/point/$userId").contentType(MediaType.APPLICATION_JSON)
+        )
+
+        // then
+        resultActions.andExpect(status().isOk)
+            .andExpect(jsonPath("$.id").value(userId))
+            .andExpect(jsonPath("$.point").value(point))
+            .andExpect(jsonPath("$.updatedMillis").value(pointEntity.updatedMillis))
+
+        verify(pointEntityRepository).findOrCreateByUserId(userId)
+    }
+
+    /**
+     * 새로운 사용자로 포인트 조회 요청이 오면,
+     * 새로운 UserPoint 를 만들어 정보를 보내주어야 한다.
+     */
+    @Test
+    fun `should return 200 ok with new PointEntityDto when getting point with new userId`() {
+        // given
+        val newUserId = 10L
+
+        // when
+        val resultActions = mockMvc.perform(
+            get("/point/$newUserId").contentType(MediaType.APPLICATION_JSON)
+        )
+
+        // then
+        resultActions.andExpect(status().isOk)
+            .andExpect(jsonPath("$.id").value(newUserId))
+            .andExpect(jsonPath("$.point").value(0))
+            .andExpect(jsonPath("$.updatedMillis").isNumber)
     }
 }
