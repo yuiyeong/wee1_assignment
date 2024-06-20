@@ -56,7 +56,7 @@ class PointControllerTest @Autowired constructor(
         resultActions.andExpect(status().isOk)
             .andExpect(jsonPath("$.id").value(userId))
             .andExpect(jsonPath("$.point").value(point + amount))
-            .andExpect(jsonPath("$.updateMillis").value(greaterThan(pointEntity.updatedMillis)))
+            .andExpect(jsonPath("$.updatedMillis").value(greaterThan(pointEntity.updatedMillis)))
 
         verify(pointEntityRepository).findOrCreateByUserId(userId)
     }
@@ -82,7 +82,7 @@ class PointControllerTest @Autowired constructor(
         resultActions.andExpect(status().isOk)
             .andExpect(jsonPath("$.id").value(userId))
             .andExpect(jsonPath("$.point").value(amount))
-            .andExpect(jsonPath("$.updateMillis").isNumber)
+            .andExpect(jsonPath("$.updatedMillis").isNumber)
     }
 
     /**
