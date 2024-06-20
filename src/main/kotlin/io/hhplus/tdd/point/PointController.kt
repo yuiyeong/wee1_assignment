@@ -51,13 +51,13 @@ class PointController(
     }
 
     /**
-     * TODO - 특정 유저의 포인트를 사용하는 기능을 작성해주세요.
+     * 특정 유저의 포인트를 사용하는 기능
      */
     @PatchMapping("{id}/use")
     fun use(
         @PathVariable id: Long,
         @RequestBody amount: Long,
-    ): UserPoint {
-        return UserPoint(0, 0, 0)
+    ): PointEntityDto {
+        return pointEntityService.use(id, amount)
     }
 }
